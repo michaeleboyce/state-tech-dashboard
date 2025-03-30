@@ -71,14 +71,32 @@ export async function saveEvents(events: EventWithTags[]): Promise<number> {
         if (existingTags.has(tagName)) {
           tagId = existingTags.get(tagName)!;
         } else {
-          // Insert new tag
-          const [newTag] = await db
-            .insert(tagsTable)
-            .values({ name: tagName })
-            .returning({ id: tagsTable.id });
-          
-          tagId = newTag.id;
-          existingTags.set(tagName, tagId);
+          // Try to insert new tag
+          try {
+            const [newTag] = await db
+              .insert(tagsTable)
+              .values({ name: tagName })
+              .returning({ id: tagsTable.id });
+            
+            tagId = newTag.id;
+            existingTags.set(tagName, tagId);
+          } catch (error) {
+            // Tag might have been inserted by another process
+            // Try to get it again
+            const tagResult = await db
+              .select()
+              .from(tagsTable)
+              .where(eq(tagsTable.name, tagName));
+            
+            if (tagResult.length > 0) {
+              tagId = tagResult[0].id;
+              existingTags.set(tagName, tagId);
+            } else {
+              // Skip this tag if we can't get or create it
+              console.error(`Could not create or find tag: ${tagName}`);
+              continue;
+            }
+          }
         }
         
         // Create relationship between event and tag

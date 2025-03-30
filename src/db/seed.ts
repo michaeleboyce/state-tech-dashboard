@@ -27,9 +27,12 @@ async function seed() {
     await db.delete(events);
     await db.delete(tags);
     
+    // Check for verbose flag
+    const verbose = process.argv.includes('--verbose');
+    
     // Option 1: Seed using static data
     if (process.argv.includes('--static-only')) {
-      await seedWithStaticData();
+      await seedWithStaticData(verbose);
     } 
     // Option 2: Seed using harvester
     else if (process.argv.includes('--harvest-only')) {
@@ -37,7 +40,7 @@ async function seed() {
     }
     // Option 3: Seed with both (default)
     else {
-      await seedWithStaticData();
+      await seedWithStaticData(verbose);
       await seedWithHarvester();
     }
     
@@ -49,22 +52,50 @@ async function seed() {
   process.exit(0);
 }
 
-async function seedWithStaticData() {
+async function seedWithStaticData(verbose = false) {
   console.log('Adding tags from static data...');
-  // Insert all unique tags
+  
+  // First get existing tags from the database
+  const existingTagsResult = await db.select().from(tags);
+  const existingTagsMap = new Map<string, number>();
+  
+  for (const tag of existingTagsResult) {
+    existingTagsMap.set(tag.name, tag.id);
+  }
+  
+  // Get all unique tags from seed events
   const uniqueTags = Array.from(
     new Set(seedEvents.flatMap(event => event.tags))
   ).sort();
   
   const insertedTags: Record<string, number> = {};
   
+  // Add existing tags to our map
+  for (const tag of existingTagsResult) {
+    insertedTags[tag.name] = tag.id;
+  }
+  
+  // Only insert tags that don't already exist
   for (const tagName of uniqueTags) {
-    const result = await db.insert(tags).values({
-      name: tagName
-    }).returning({ id: tags.id });
+    // Skip if tag already exists
+    if (existingTagsMap.has(tagName)) {
+      if (verbose) {
+        console.log(`Tag already exists: ${tagName}`);
+      }
+      continue;
+    }
     
-    if (result && result.length > 0) {
-      insertedTags[tagName] = result[0].id;
+    try {
+      const result = await db.insert(tags).values({
+        name: tagName
+      }).returning({ id: tags.id });
+      
+      if (result && result.length > 0) {
+        insertedTags[tagName] = result[0].id;
+      }
+    } catch (error) {
+      // Log error but continue with other tags
+      console.error(`Error inserting tag ${tagName}:`, error);
     }
   }
   
@@ -124,21 +155,50 @@ async function seedWithHarvester() {
   console.log(`Harvested ${harvestedEvents.length} events from sources`);
   
   // We need to save the events manually since we set saveResults to false
-  // First insert all unique tags
+  // First get existing tags to avoid duplicates
   console.log('Adding tags from harvested events...');
+  
+  // Get existing tags from the database
+  const existingTagsResult = await db.select().from(tags);
+  const existingTagsMap = new Map<string, number>();
+  
+  for (const tag of existingTagsResult) {
+    existingTagsMap.set(tag.name, tag.id);
+  }
+  
+  // Get all unique tags from harvested events
   const uniqueTags = Array.from(
     new Set(harvestedEvents.flatMap(event => event.tags))
   ).sort();
   
   const insertedTags: Record<string, number> = {};
   
+  // Add existing tags to our map
+  for (const tag of existingTagsResult) {
+    insertedTags[tag.name] = tag.id;
+  }
+  
+  // Only insert tags that don't already exist
   for (const tagName of uniqueTags) {
-    const result = await db.insert(tags).values({
-      name: tagName
-    }).returning({ id: tags.id });
+    // Skip if tag already exists
+    if (existingTagsMap.has(tagName)) {
+      if (verbose) {
+        console.log(`Tag already exists: ${tagName}`);
+      }
+      continue;
+    }
     
-    if (result && result.length > 0) {
-      insertedTags[tagName] = result[0].id;
+    try {
+      const result = await db.insert(tags).values({
+        name: tagName
+      }).returning({ id: tags.id });
+      
+      if (result && result.length > 0) {
+        insertedTags[tagName] = result[0].id;
+      }
+    } catch (error) {
+      // Log error but continue with other tags
+      console.error(`Error inserting tag ${tagName}:`, error);
     }
   }
   
