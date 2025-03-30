@@ -45,16 +45,16 @@ export async function getAllEvents(): Promise<EventWithTags[]> {
         id: row.id,
         title: row.title,
         description: row.description,
-        date: row.date,
+        date: new Date(row.date),
         location: row.location,
         jurisdiction: row.jurisdiction,
         agency: row.agency,
         url: row.url,
-        virtual: row.virtual,
-        tags: row.tagName ? [row.tagName] : [],
+        virtual: row.virtual ?? false,
+        tags: row.tagName ? [row.tagName as string] : [],
       });
     } else if (row.tagName) {
-      eventMap.get(row.id)!.tags.push(row.tagName);
+      eventMap.get(row.id)!.tags.push(row.tagName as string);
     }
   }
 
@@ -90,13 +90,13 @@ export async function getEventById(id: number): Promise<EventWithTags | null> {
     id: rows[0].id,
     title: rows[0].title,
     description: rows[0].description,
-    date: rows[0].date,
+    date: new Date(rows[0].date),
     location: rows[0].location,
     jurisdiction: rows[0].jurisdiction,
     agency: rows[0].agency,
     url: rows[0].url,
-    virtual: rows[0].virtual,
-    tags: rows.filter(row => row.tagName).map(row => row.tagName),
+    virtual: rows[0].virtual ?? false,
+    tags: rows.filter(row => !!row.tagName).map(row => row.tagName as string),
   };
 
   return event;
