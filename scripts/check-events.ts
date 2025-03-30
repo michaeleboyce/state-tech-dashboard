@@ -1,4 +1,5 @@
 import { drizzle } from 'drizzle-orm/neon-http';
+import { sql } from 'drizzle-orm';
 import { neon } from '@neondatabase/serverless';
 import { events, tags, eventTags } from '../src/db/schema';
 import * as dotenv from 'dotenv';
@@ -11,27 +12,27 @@ if (!connectionString) {
   throw new Error('DATABASE_URL is not defined in environment variables');
 }
 
-// Initialize the database client
-const sql = neon(connectionString);
-const db = drizzle(sql);
+// Initialize the database client using a different variable name
+const client = neon(connectionString);
+const db = drizzle(client);
 
 async function checkEvents() {
   console.log('Checking database events...');
   
   try {
     // Count events
-    const eventCount = await db.select({ count: 
-      { value: events.id, fn: 'count' } 
+    const eventCountResult = await db.select({
+      count: sql`count(${events.id})`
     }).from(events);
     
-    console.log(`Total events in database: ${eventCount[0].count.value}`);
+    console.log(`Total events in database: ${eventCountResult[0].count}`);
     
     // Count tags
-    const tagCount = await db.select({ count: 
-      { value: tags.id, fn: 'count' } 
+    const tagCountResult = await db.select({
+      count: sql`count(${tags.id})`
     }).from(tags);
     
-    console.log(`Total tags in database: ${tagCount[0].count.value}`);
+    console.log(`Total tags in database: ${tagCountResult[0].count}`);
     
     // List events (limit to 10)
     const eventsList = await db.select().from(events).limit(10);

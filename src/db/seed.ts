@@ -36,12 +36,12 @@ async function seed() {
     } 
     // Option 2: Seed using harvester
     else if (process.argv.includes('--harvest-only')) {
-      await seedWithHarvester();
+      await seedWithHarvester(verbose);
     }
     // Option 3: Seed with both (default)
     else {
       await seedWithStaticData(verbose);
-      await seedWithHarvester();
+      await seedWithHarvester(verbose);
     }
     
     console.log('Database seeded successfully');
@@ -134,7 +134,7 @@ async function seedWithStaticData(verbose = false) {
   console.log(`Inserted ${seedEvents.length} events from static data`);
 }
 
-async function seedWithHarvester() {
+async function seedWithHarvester(verbose = false) {
   console.log('Harvesting events from sources...');
   
   // Get sources to use for seeding (can be specified via command line)
